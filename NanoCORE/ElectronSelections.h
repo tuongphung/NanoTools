@@ -22,8 +22,12 @@ namespace SS {
     bool electron2017ID(int idx, SS::IDLevel id_level);
     bool electron2018ID(int idx, SS::IDLevel id_level);
     bool passesElectronMVA(int idx, SS::ElectronMVAIDLevel id_level, int year);
+    bool isTriggerSafeNoIso(int idx);
 }
 
-bool isTriggerSafeNoIso(int idx);
+namespace ttH {
+    bool electronID(int idx, ttH::IDLevel id_level, int year);
+    bool isTriggerSafeNoIso(int idx);
+}
 
 #endif

@@ -1,5 +1,6 @@
 #include "MuonSelections.h"
 #include "IsolationTools.h"
+#include "Config.h"
 
 using namespace tas;
 
@@ -100,4 +101,42 @@ bool SS::muon2018ID(unsigned int idx, SS::IDLevel id_level) {
         break;
     }
     return false;
+}
+
+bool ttH::muonID(unsigned int idx, ttH::IDLevel id_level, int year) {
+    // Common (across ID levels) checks
+    if (Muon_pt().at(idx) <= 5.) { return false; }
+    if (fabs(Muon_eta().at(idx)) >= 2.4) { return false; }
+    if (fabs(Muon_dxy().at(idx)) >= 0.05) { return false; }
+    if (fabs(Muon_dz().at(idx)) >= 0.1) { return false; }
+    if (Muon_sip3d().at(idx) >= 8) { return false; }
+    if (Muon_miniPFRelIso_all().at(idx) >= 0.4) { return false; }
+    if (!Muon_looseId().at(idx)) { return false; } // loose POG ID
+    // Common fakable(loose) and tight checks
+    if (id_level > ttH::IDveto) {
+        if (Muon_pt().at(idx) <= 10.) { return false; }
+        unsigned int jet_idx = Muon_jetIdx().at(idx);
+        if (Jet_btagDeepFlavB().at(jet_idx) >= gconf.WP_DeepFlav_medium) { return false; };
+    }
+    switch (id_level) {
+    case (ttH::IDveto):
+        return true;
+        break;
+    case (ttH::IDfakable):
+        if (Muon_mvaTTH().at(idx) <= 0.85) { 
+            if (Muon_jetRelIso().at(idx) >= 0.5) { return false; }
+        }
+        return true;
+        break;
+    case (ttH::IDtight):
+        if (!Muon_mediumId().at(idx)) { return false; } // medium POG ID
+        if (Muon_mvaTTH().at(idx) <= 0.85) { return false; }
+        return true;
+        break;
+    default:
+        throw std::runtime_error("MuonSelections.cc: ERROR - invalid ID level");
+        return false;
+        break;
+    }
+    return true;
 }

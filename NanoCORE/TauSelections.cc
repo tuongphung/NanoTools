@@ -61,6 +61,37 @@ bool SS::tau2018ID(int idx, SS::IDLevel id_level)
     return SS::tau2017ID(idx, id_level); 
 }
 
+bool ttH::tauID(int idx, ttH::IDLevel id_level, int year) 
+{
+    if (Tau_pt().at(idx) <= 20.) { return false; }
+    if (fabs(Tau_dz().at(idx)) >= 0.2) { return false; }
+    if (fabs(Tau_eta().at(idx)) >= 2.3) { return false; }
+    if (!Tau_idDecayModeNewDMs().at(idx)) { return false; }
+    switch(id_level) 
+    {
+    case (ttH::IDveto):
+        if (!passesDeepTau(idx, DeepTau::vvLoose, DeepTau::vsJets)) { return false; }
+        return true;
+        break;
+    case (ttH::IDfakable):
+        if (!passesDeepTau(idx, DeepTau::vvLoose, DeepTau::vsJets)) { return false; }
+        if (!passesDeepTau(idx, DeepTau::vLoose, DeepTau::vsMuons)) { return false; }
+        if (!passesDeepTau(idx, DeepTau::vvvLoose, DeepTau::vsElectrons)) { return false; }
+        return true;
+        break;
+    case (ttH::IDtight):
+        if (!passesDeepTau(idx, DeepTau::tight, DeepTau::vsJets)) { return false; }
+        if (!passesDeepTau(idx, DeepTau::vLoose, DeepTau::vsMuons)) { return false; }
+        if (!passesDeepTau(idx, DeepTau::vvvLoose, DeepTau::vsElectrons)) { return false; }
+        return true;
+        break;
+    default:
+        throw std::runtime_error("TauSelections.cc: ERROR - invalid ID level");
+        return false;
+        break;
+    }
+}
+
 bool passesDeepTau(int idx, DeepTau::IDLevel id_level, DeepTau::Variant variant) 
 {
     int bit_flag;

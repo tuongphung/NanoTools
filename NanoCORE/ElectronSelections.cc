@@ -1,14 +1,21 @@
 #include "ElectronSelections.h"
 #include "IsolationTools.h"
+#include "Config.h"
 
 using namespace tas;
 
 bool SS::electronID(int idx, SS::IDLevel id_level, int year) {
     // Common (across years and ID levels) checks
+<<<<<<< HEAD
     //if (Electron_pt().at(idx) < 7.) { return false; }
     //if (!isTriggerSafeNoIso(idx)) { return false; }
     if (fabs(Electron_eta().at(idx)) > 2.4) { return false; }
     // if (fabs(Electron_eta().at(idx) + Electron_deltaEtaSC().at(idx)) > 2.5) { return false; }
+=======
+    if (Electron_pt().at(idx) < 7.) { return false; }
+    if (!SS::isTriggerSafeNoIso(idx)) { return false; }
+    if (fabs(Electron_eta().at(idx) + Electron_deltaEtaSC().at(idx)) > 2.5) { return false; }
+>>>>>>> fcc6f5e117d64d996c95c3737304abc51391d1b0
     if (!Electron_convVeto().at(idx)) { return false; }
     if (fabs(Electron_dxy().at(idx)) >= 0.05) { return false; }
     if (fabs(Electron_dz().at(idx)) >= 0.1) { return false; }
@@ -296,7 +303,7 @@ bool SS::passesElectronMVA(int idx, SS::ElectronMVAIDLevel id_level, int year) {
     return false;
 }
 
-bool isTriggerSafeNoIso(int idx) {
+bool SS::isTriggerSafeNoIso(int idx) {
     // Calculate absolute value of supercluster eta
     float SC_absEta = fabs(Electron_eta().at(idx) + Electron_deltaEtaSC().at(idx));
     if (SC_absEta <= 1.479) {
@@ -307,6 +314,65 @@ bool isTriggerSafeNoIso(int idx) {
         if (Electron_sieie().at(idx) >= 0.031) { return false; }
         if (Electron_hoe().at(idx) >= 0.08) { return false; }
         if (fabs(Electron_eInvMinusPInv().at(idx)) >= 0.01) { return false; }
+    }
+    return true;
+}
+
+bool ttH::electronID(int idx, ttH::IDLevel id_level, int year) {
+    // Common (across ID levels) checks
+    if (Electron_pt().at(idx) <= 7.) { return false; }
+    if (fabs(Electron_eta().at(idx) + Electron_deltaEtaSC().at(idx)) >= 2.5) { return false; }
+    if (fabs(Electron_dxy().at(idx)) >= 0.05) { return false; }
+    if (fabs(Electron_dz().at(idx)) >= 0.1) { return false; }
+    if (Electron_sip3d().at(idx) >= 8) { return false; }
+    if (Electron_miniPFRelIso_all().at(idx) >= 0.4) { return false; }
+    if (int(Electron_lostHits().at(idx)) > 1) { return false; }
+    if (!Electron_mvaFall17V2Iso_WPL().at(idx)) { return false; }
+    // Common fakable(loose) and tight checks
+    if (id_level > ttH::IDveto) {
+        if (Electron_pt().at(idx) <= 10.) { return false; }
+        if (!ttH::isTriggerSafeNoIso(idx)) { return false; }
+        if (!Electron_convVeto().at(idx)) { return false; }
+        if (int(Electron_lostHits().at(idx)) > 0) { return false; }
+        unsigned int jet_idx = Electron_jetIdx().at(idx);
+        if (Jet_btagDeepFlavB().at(jet_idx) >= gconf.WP_DeepFlav_medium) { return false; };
+        return true;
+    }
+    switch (id_level) {
+    case (ttH::IDveto):
+        return true;
+        break;
+    case (ttH::IDfakable):
+        if (Electron_mvaTTH().at(idx) <= 0.8) { 
+            if (!Electron_mvaFall17V2Iso_WP80().at(idx)) { return false; }
+            if (Electron_jetRelIso().at(idx) >= 0.7) { return false; }
+        }
+        return true;
+        break;
+    case (ttH::IDtight):
+        if (Electron_mvaTTH().at(idx) <= 0.8) { return false; }
+        return true;
+        break;
+    default:
+        throw std::runtime_error("ElectronSelections.cc: ERROR - invalid ID level");
+        return false;
+        break;
+    }
+
+    return true;
+}
+
+bool ttH::isTriggerSafeNoIso(int idx) {
+    // Calculate absolute value of supercluster eta
+    float SC_absEta = fabs(Electron_eta().at(idx) + Electron_deltaEtaSC().at(idx));
+    if (Electron_hoe().at(idx) >= 0.1) { return false; }
+    if (Electron_eInvMinusPInv().at(idx) <= -0.4) { return false; }
+    if (SC_absEta <= 1.479) {
+        // Barrel
+        if (Electron_sieie().at(idx) >= 0.011) { return false; }
+    } else if (SC_absEta > 1.479 && SC_absEta < 2.5) {
+        // Endcaps
+        if (Electron_sieie().at(idx) >= 0.030) { return false; }
     }
     return true;
 }

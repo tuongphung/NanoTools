@@ -11,6 +11,10 @@ namespace SS {
     bool tau2018ID(int idx, SS::IDLevel id_level);
 }
 
+namespace ttH {
+    bool tauID(int idx, ttH::IDLevel id_level, int year);
+}
+
 namespace DeepTau {
     enum IDLevel {
         vvvLoose,

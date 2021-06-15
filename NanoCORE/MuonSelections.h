@@ -10,4 +10,8 @@ namespace SS {
     bool muon2018ID(unsigned int idx, SS::IDLevel id_level);
 }
 
+namespace ttH {
+    bool muonID(unsigned int idx, ttH::IDLevel id_level, int year);
+}
+
 #endif
