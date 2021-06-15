@@ -1,0 +1,209 @@
+#!/usr/bin/env python
+from tqdm import tqdm
+import ROOT as r
+import os
+from sys import exit
+import numpy as np
+from array import array
+from bisect import bisect
+
+year = 2016
+
+ch = r.TChain("Events")
+#ch.Add("file:///home/users/tuongphung21/qcd_pt300-470_RunIISummer16NanoAODv7.root");
+if year == 2016:
+    #FIXME add ability to loop over all files in a dir
+    # maybe get rid of these if statements, put dirs in a dict, then just implement a for loop over .root files in the dir given year
+    #ch.AddFile("file:///hadoop/cms/store/user/ksalyer/FCNC_NanoSkim/fcnc_v3/TTJets_TuneCUETP8M2T4_13TeV-amcatnloFXFX-pythia8_RunIISummer16NanoAODv7-PUMoriond17_Nano02Apr2020_102X_mcRun2_asymptotic_v8-v1_NANOAODSIM_fcnc_v3/output_1.root");
+    ch.AddFile("file:///hadoop/cms/store/user/ksalyer/FCNC_NanoSkim/fcnc_v3/TTJets_TuneCUETP8M2T4_13TeV-amcatnloFXFX-pythia8_RunIISummer16NanoAODv7-PUMoriond17_Nano02Apr2020_102X_mcRun2_asymptotic_v8-v1_NANOAODSIM_fcnc_v3/output_4.root");
+
+elif year == 2017:
+    pass
+elif year == 2018:
+    pass
+
+r.gSystem.Load('../NanoCORE/NANO_CORE.so')
+for include in ["Nano.cc", "SSSelections.cc", "ElectronSelections.cc", "MuonSelections.cc", "IsolationTools.cc"]: 
+    r.gInterpreter.ProcessLine('#include "../NanoCORE/%s"' % include)
+
+# CORE functions will be ROOT object members after we gSystem.Load CORE
+from ROOT import nt, gconf, SS
+
+gconf.year = year
+nt.Init(ch)
+
+##ele_x_bins = {2016: [25, 35, 50], 2017: [25, 35, 50, 70], 2018: [25, 35, 50, 70]}
+#x_bins = [25, 35, 50]
+##muon_x_bins = {2016: [15, 25, 35, 50], 2017: [20, 25, 35, 50, 70], 2018: [20, 25, 35, 50, 70]}
+##ele_y_bins = [0, 0.8, 1.479, 2.5]
+#y_bins = [0, 0.8, 1.479, 2.5]
+##muon_y_bins = [0, 1.2, 2.1, 2.4]
+#n_xbins = len(x_bins)
+#n_ybins = len(y_bins)
+#h_denom   = r.TH2F("denom", "Denominator Selection", len(x_bins)-1, array('f', x_bins), len(y_bins)-1, array('f', y_bins))
+#h_numer   = r.TH2F("numer", "Numerator Selection", len(x_bins)-1, array('f', x_bins), len(y_bins)-1, array('f', y_bins))
+#h_fr   = r.TH2F("fr", "fr", len(x_bins)-1, array('f', x_bins), len(y_bins)-1, array('f', y_bins))
+
+def deltaR_met_mt(lep):
+    # at least one jet separated from the lepton by deltaR > 1
+    passed = False
+    for idx, pt in enumerate(nt.Jet_pt()):
+        jet = r.TLorentzVector(0,0,0,0)
+        jet.SetPtEtaPhiM(pt, nt.Jet_eta()[idx], nt.Jet_phi()[idx], nt.Jet_mass()[idx])
+        if lep.DeltaR(jet) > 1:
+    	    passed = True	   
+    	break
+    if not passed:
+        return False	
+    
+    # met < 20
+    met = nt.MET_pt()
+    if met >= 20:
+        return False
+    
+    # mt(lepton, met) < 20
+    mt = np.sqrt(2*lep.Pt()*met*(1-np.cos(lep.Phi()-nt.MET_phi())))
+    if mt >= 20:
+        return False
+
+    return True
+
+cr_ele = 0
+cr_muon = 0
+sr_ele = 0
+sr_muon = 0
+
+def process_event(ievent):
+	
+    nt.GetEntry(ievent)
+
+    # IDfakable = 2, IDtight = 4
+    true_t = 0
+    fake_lnott = 0
+    fake_t = 0
+
+    for idx, pt in enumerate(nt.Electron_pt()):
+	loose = False
+	tight = False
+	if SS.electronID(idx, 2, year):
+	    lep = r.TLorentzVector(0,0,0,0)
+	    lep.SetPtEtaPhiM(pt, nt.Electron_eta()[idx], nt.Electron_phi()[idx], nt.Electron_mass()[idx])
+	    if deltaR_met_mt(lep):
+	        loose = True
+		if SS.electronID(idx, 4, year):
+		    tight = True
+	genPartFlav = nt.Electron_genPartFlav()[idx] 
+	print genPartFlav
+	fake = (genPartFlav != 1 and genPartFlav != 15)
+	if not fake and tight:
+	    true_t += 1	
+	elif fake and loose and not tight:
+	    fake_lnott += 1
+	    fake_flav = 'ele'
+	elif fake and tight:
+	    fake_t += 1
+	    fake_flav = 'ele'
+	
+    for idx, pt in enumerate(nt.Muon_pt()):
+	loose = False
+	tight = False
+	if SS.muonID(idx, 2, year):
+	    lep = r.TLorentzVector(0,0,0,0)
+	    lep.SetPtEtaPhiM(pt, nt.Muon_eta()[idx], nt.Muon_phi()[idx], nt.Muon_mass()[idx])
+	    if deltaR_met_mt(lep):
+		loose = True	    
+		if SS.muonID(idx, 4, year):
+		   tight = True
+	genPartFlav = nt.Muon_genPartFlav()[idx]
+	print genPartFlav 
+	fake = (genPartFlav != 1 and genPartFlav != 15)
+	if not fake and tight:
+	    true_t += 1	
+	elif fake and loose and not tight:
+	    fake_lnott += 1
+	    fake_flav = 'muon'
+	elif fake and tight:
+	    fake_t += 1
+   	    fake_flav = 'muon'
+
+#    if true_t + fake_t + fake_lnott > 0: 
+#        print true_t, fake_t, fake_lnott
+    if true_t > 0:
+	print true_t 
+ 
+#		lep_idx = idx
+    if true_t == 1 and fake_t == 1:
+	if fake_flav == 'ele':
+	    sr_ele += 1
+	    print 'here'
+	elif fake_flav == 'muon':
+	    sr_muon += 1
+	    print 'here'
+	
+    elif true_t == 1 and fake_lnott == 1:
+	fr = 1 #FIXME
+	if fake_flav == 'ele':
+	    cr_ele += 1*fr
+	    print 'here'
+	elif fake_flav == 'muon':
+	    cr_muon += 1*fr
+	    print 'here'
+	#ccpt = r.coneCorrPt(nt.Muon_pdgId()[lep_idx], lep_idx, 0.11, 0.74, 6.8)
+	#eta = lep.Eta()
+    	
+    return
+
+
+for ievent in tqdm(range(ch.GetEntries())):
+#for ievent in tqdm(range(20000)):
+    process_event(ievent)
+
+print "cr_ele = " + str(cr_ele)
+print "cr_muon = " + str(cr_muon)
+print "sr_ele = " + str(sr_ele)
+print "sr_muon = " + str(sr_muon)
+#print(h1.GetMean())
+
+#hist_pixel_x = 600
+#hist_pixel_y = 450
+#num_hist_x = 1
+#num_hist_y = 3
+#c = r.TCanvas("fake_rate", "Muon Fake Rate", hist_pixel_x * num_hist_x, hist_pixel_y * num_hist_y)
+#c.Divide(num_hist_x, num_hist_y)
+#r.gStyle.SetOptStat("ne")
+##c.SetLogy()
+#
+#c.cd(1)
+#h_numer.GetXaxis().SetTitle("cone corr p_{T} [GeV]")
+#h_numer.GetYaxis().SetTitle("|\eta|")
+#h_numer.SetMarkerSize(2.5)
+#h_numer.Draw("COLZ TEXT")
+#
+#c.cd(2)
+#h_denom.GetXaxis().SetTitle("cone corr p_{T} [GeV]")
+#h_denom.GetYaxis().SetTitle("|\eta|")
+#h_denom.SetMarkerSize(2.5)
+#h_denom.Draw("COLZ TEXT")
+#
+#c.cd(3)
+#h_fr = h_numer.Clone()
+#h_fr.SetTitle("Muon Fake Rate")
+#h_fr.SetName("fake_rate")
+#h_fr.Divide(h_denom)
+#stats = h_fr.GetListOfFunctions().FindObject("stats")
+#h_fr.SetMarkerSize(2.5)
+#h_fr.Draw("COLZ TEXT45")
+#
+##for i in range(1, n_xbins):
+##    for j in range(1, n_ybins):
+##	print (i, j), sorted(bin_content[(i,j)])
+#
+##print h_denom.GetBinContent(1, 1)
+#
+#
+#c.SaveAs("plots/fake_rate.pdf")
+
+
+#os.system("niceplots plots muon_fr")
+
+#os.system("which ic && ic plot.pdf")
